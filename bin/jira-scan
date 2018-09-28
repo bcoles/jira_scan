@@ -1,0 +1,141 @@
+#!/usr/bin/env ruby
+#
+# This file is part of JiraScan
+# https://github.com/bcoles/jira_scan
+#
+
+require 'jira_scan'
+require 'optparse'
+require 'terminal-table'
+require 'resolv'
+
+def banner
+  puts "
+       _ _            _____                 
+      | (_)          / ____|                
+      | |_ _ __ __ _| (___   ___ __ _ _ __  
+  _   | | | '__/ _` |\\___ \\ / __/ _` | '_ \\ 
+ | |__| | | | | (_| |____) | (_| (_| | | | |
+  \\____/|_|_|  \\__,_|_____/ \\___\\__,_|_| |_|
+                               version 0.0.1"
+  puts
+  puts '-'*60
+end
+
+banner
+options = {}
+opts = OptionParser.new do |opts|
+  opts.banner = "Usage: jira-scan [options]"
+
+  opts.on('-u URL', '--url URL', 'Jira URL to scan') do |v|
+    unless v.match(%r{\Ahttps?://})
+      puts "- Invalid URL: #{v}"
+      exit(1)
+    end
+    options[:url] = v
+  end
+
+  opts.on('-s', '--skip', 'Skip check for Jira') do
+    options[:skip] = true
+  end
+
+  opts.on('-v', '--verbose', 'Enable verbose output') do
+    options[:verbose] = true
+  end
+
+  opts.on('-h', '--help', 'Show this help') do 
+    puts opts
+    exit
+  end
+end
+
+opts.parse!
+
+$VERBOSE = true unless options[:verbose].nil?
+@check = true unless options[:skip]
+
+if options[:url].nil?
+ puts opts
+ exit(1)
+end
+
+def scan(url)
+  puts "Scan started at #{Time.now.getutc}"
+  puts "URL: #{url}"
+
+  # parse URL
+  target = nil
+  begin
+    target = URI::parse(url.split('?').first)
+  rescue
+    puts "- Could not parse target URL: #{url}"
+  end
+  exit(1) if target.nil?
+
+  # resolve IP address
+  begin
+    ip = Resolv.getaddress(target.host).to_s
+    puts "IP: #{ip}" unless ip.nil?
+  rescue
+    puts "- Could not resolve hostname #{target.host}"
+  end
+
+  puts "Port: #{target.port}"
+  puts '-' * 60
+
+  # Check if the URL is Jira
+  if @check
+    if JiraScan::isJira(url)
+      puts "+ Found Jira"
+    else
+      puts "- Jira not found"
+      exit(1)
+    end
+  end
+
+  # Get Jira version
+  version = JiraScan::getVersion(url)
+  puts "+ Version: #{version}" if version
+
+  # Dev mode enabled
+  dev_mode = JiraScan::devMode(url)
+  puts "+ Dev mode is enabled" if dev_mode
+
+  # User registration enabled
+  register = JiraScan::userRegistration(url)
+  puts "+ User registration is enabled" if register
+
+  # User Picker accessible
+  user_picker = JiraScan::userPicker(url)
+  if user_picker
+    puts "+ User Picker is available"
+    # Retrieve list of first 1,000 users 
+    users = JiraScan::getUsers(url)
+    unless users.empty?
+      puts "+ Found users (#{users.length}):"
+      table = Terminal::Table.new :headings => ['Username', 'Full Name', 'Email'], :rows => users
+      puts table
+    end
+  end
+
+  # Retrieve list of dashboards
+  dashboards = JiraScan::getDashboards(url)
+  unless dashboards.empty?
+    puts "+ Found dashboards (#{dashboards.length}):"
+    table = Terminal::Table.new :headings => ['ID', 'Name'], :rows => dashboards
+    puts table
+  end
+
+  # Retrieve list of popular filters
+  filters = JiraScan::getPopularFilters(url)
+  unless filters.empty?
+    puts "+ Found popular filters (#{filters.length}):"
+    table = Terminal::Table.new :headings => ['Filter Name'], :rows => filters
+    puts table
+  end
+
+  puts "Scan finished at #{Time.now.getutc}"
+  puts '-' * 60
+end
+
+scan(options[:url])
