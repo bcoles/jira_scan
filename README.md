@@ -6,10 +6,20 @@ JiraScan is a simple remote scanner for Atlassian Jira.
 
 ## Installation
 
+Install from RubyGems.org:
+
 ```
+gem install jira_scan
+```
+
+Install from GitHub:
+
+```
+git clone https://github.com/bcoles/jira_scan
+cd jira_scan
 bundle install
 gem build jira_scan.gemspec
-gem install --local jira_scan-0.0.1.gem
+gem install --local jira_scan-0.0.2.gem
 ```
 
 ## Usage (command line)
@@ -28,13 +38,18 @@ Usage: jira-scan <url> [options]
 
 ```
 require 'jira_scan'
-is_jira     = JiraScan::isJira(url)               # Check if a URL is Jira
-version     = JiraScan::getVersion(url)           # Get Jira version
-dev_mode    = JiraScan::devMode(url)              # Check if dev mode is enabled
-register    = JiraScan::userRegistration(url)     # Check if user registration is enabled
-user_picker = JiraScan::userPicker(url)           # Check if User Picker is accessible
-users       = JiraScan::getUsers(url)             # Retrieve list of first 1,000 users
-dashboards  = JiraScan::getDashboards(url)        # Retrieve list of dashboards
-filters     = JiraScan::getPopularFilters(url)    # Retrieve list of popular filters
+JiraScan::isJira(url)                         # Check if a URL is Jira
+JiraScan::getVersion(url)                     # Retrieve Jira version
+JiraScan::devMode(url)                        # Check if dev mode is enabled
+JiraScan::userRegistration(url)               # Check if user registration is enabled
+JiraScan::userPickerBrowser(url)              # Check if User Picker Browser is accessible
+JiraScan::restUserPicker(url)                 # Check if REST User Picker is accessible
+JiraScan::restGroupUserPicker(url)            # Check if REST Group User Picker is accessible
+JiraScan::viewUserHover(url)                  # Check if View User Hover is accessible
+JiraScan::metaInf(url)                        # Check if META-INF contents are accessible
+JiraScan::getUsersFromUserPickerBrowser(url)  # Retrieve list of first 1,000 users from User Picker Browser
+JiraScan::getDashboards(url)                  # Retrieve list of dashboards
+JiraScan::getPopularFilters(url)              # Retrieve list of popular filters
+JiraScan::getFieldNames(url)                  # Retrieve list of field names
 ```
 

@@ -17,17 +17,17 @@ def banner
   _   | | | '__/ _` |\\___ \\ / __/ _` | '_ \\ 
  | |__| | | | | (_| |____) | (_| (_| | | | |
   \\____/|_|_|  \\__,_|_____/ \\___\\__,_|_| |_|
-                               version 0.0.1"
+                               version 0.0.2"
   puts
-  puts '-'*60
+  puts '-' * 60
 end
 
 banner
 options = {}
-opts = OptionParser.new do |opts|
-  opts.banner = "Usage: jira-scan [options]"
+opts = OptionParser.new do |o|
+  o.banner = 'Usage: jira-scan [options]'
 
-  opts.on('-u URL', '--url URL', 'Jira URL to scan') do |v|
+  o.on('-u URL', '--url URL', 'Jira URL to scan') do |v|
     unless v.match(%r{\Ahttps?://})
       puts "- Invalid URL: #{v}"
       exit(1)
@@ -35,15 +35,15 @@ opts = OptionParser.new do |opts|
     options[:url] = v
   end
 
-  opts.on('-s', '--skip', 'Skip check for Jira') do
+  o.on('-s', '--skip', 'Skip check for Jira') do
     options[:skip] = true
   end
 
-  opts.on('-v', '--verbose', 'Enable verbose output') do
+  o.on('-v', '--verbose', 'Enable verbose output') do
     options[:verbose] = true
   end
 
-  opts.on('-h', '--help', 'Show this help') do 
+  o.on('-h', '--help', 'Show this help') do
     puts opts
     exit
   end
@@ -85,12 +85,11 @@ def scan(url)
 
   # Check if the URL is Jira
   if @check
-    if JiraScan::isJira(url)
-      puts "+ Found Jira"
-    else
-      puts "- Jira not found"
+    unless JiraScan::isJira(url)
+      puts '- Jira not found'
       exit(1)
     end
+    puts '+ Found Jira'
   end
 
   # Get Jira version
@@ -99,24 +98,40 @@ def scan(url)
 
   # Dev mode enabled
   dev_mode = JiraScan::devMode(url)
-  puts "+ Dev mode is enabled" if dev_mode
+  puts '+ Dev mode is enabled' if dev_mode
 
   # User registration enabled
   register = JiraScan::userRegistration(url)
-  puts "+ User registration is enabled" if register
+  puts '+ User registration is enabled' if register
 
-  # User Picker accessible
-  user_picker = JiraScan::userPicker(url)
+  # Check if User Picker Browser is accessible
+  user_picker = JiraScan::userPickerBrowser(url)
   if user_picker
-    puts "+ User Picker is available"
+    puts '+ User Picker Browser is available'
     # Retrieve list of first 1,000 users 
-    users = JiraScan::getUsers(url)
+    users = JiraScan::getUsersFromUserPicker(url)
     unless users.empty?
       puts "+ Found users (#{users.length}):"
       table = Terminal::Table.new :headings => ['Username', 'Full Name', 'Email'], :rows => users
       puts table
     end
   end
+
+  # Check if REST User Picker is accessible
+  rest_user_picker = JiraScan::restUserPicker(url)
+  puts "+ REST UserPicker is available" if rest_user_picker
+
+  # Check if REST Group User Picker is accessible
+  rest_group_user_picker = JiraScan::restGroupUserPicker(url)
+  puts "+ REST GroupUserPicker is available" if rest_group_user_picker
+
+  # Check if ViewUserHover.jspa is accessible
+  view_user_hover = JiraScan::viewUserHover(url)
+  puts "+ ViewUserHover.jspa is available" if view_user_hover
+
+  # Check if META-INF contents are accessible
+  meta_inf = JiraScan::metaInf(url)
+  puts '+ META-INF directory contents are accessible' if meta_inf
 
   # Retrieve list of dashboards
   dashboards = JiraScan::getDashboards(url)
@@ -131,6 +146,14 @@ def scan(url)
   unless filters.empty?
     puts "+ Found popular filters (#{filters.length}):"
     table = Terminal::Table.new :headings => ['Filter Name'], :rows => filters
+    puts table
+  end
+
+  # Retrieve list of field names
+  field_names = JiraScan::getFieldNames(url)
+  unless field_names.empty?
+    puts "+ Found field names (#{field_names.length}):"
+    table = Terminal::Table.new :headings => ['Name', 'ID', 'Key', 'IsShown', 'Last Viewed'], :rows => field_names
     puts table
   end
 

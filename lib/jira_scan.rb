@@ -1,4 +1,3 @@
-# coding: utf-8
 #
 # This file is part of JiraScan
 # https://github.com/bcoles/jira_scan
@@ -11,7 +10,7 @@ require 'net/http'
 require 'openssl'
 
 class JiraScan
-  VERSION = '0.0.1'.freeze
+  VERSION = '0.0.2'.freeze
 
   #
   # Check if Jira
@@ -22,12 +21,12 @@ class JiraScan
   #
   def self.isJira(url)
     url += '/' unless url.to_s.end_with? '/'
-    res = self.sendHttpRequest("#{url}secure/Dashboard.jspa")
+    res = sendHttpRequest("#{url}secure/Dashboard.jspa")
 
     return false unless res
     return false unless res.code.to_i == 200
 
-    res.body.to_s.include? 'JIRA'
+    res.body.to_s.include?('JIRA')
   end
 
   #
@@ -39,7 +38,7 @@ class JiraScan
   #
   def self.getVersion(url)
     url += '/' unless url.to_s.end_with? '/'
-    res = self.sendHttpRequest("#{url}secure/Dashboard.jspa")
+    res = sendHttpRequest("#{url}secure/Dashboard.jspa")
 
     return unless res
     return unless res.code.to_i == 200
@@ -73,7 +72,7 @@ class JiraScan
     return false unless res
     return false unless res.code.to_i == 200
 
-    res.body.to_s.include? '<meta name="ajs-dev-mode" content="true">'
+    res.body.to_s.include?('<meta name="ajs-dev-mode" content="true">')
   end
 
   #
@@ -85,42 +84,42 @@ class JiraScan
   #
   def self.userRegistration(url)
     url += '/' unless url.to_s.end_with? '/'
-    res = self.sendHttpRequest("#{url}secure/Signup!default.jspa")
+    res = sendHttpRequest("#{url}secure/Signup!default.jspa")
 
     return false unless res
     return false unless res.code.to_i == 200
 
-    res.body.to_s.include? '<h1>Sign up</h1>'
+    res.body.to_s.include?('<h1>Sign up</h1>')
   end
 
   #
-  # Check if unauthenticated access to User Picker is allowed
+  # Check if unauthenticated access to UserPickerBrowser.jspa is allowed
   #
   # @param [String] URL
   #
   # @return [Boolean]
   #
-  def self.userPicker(url)
+  def self.userPickerBrowser(url)
     url += '/' unless url.to_s.end_with? '/'
-    res = self.sendHttpRequest("#{url}secure/popups/UserPickerBrowser.jspa")
+    res = sendHttpRequest("#{url}secure/popups/UserPickerBrowser.jspa")
 
     return false unless res
     return false unless res.code.to_i == 200
 
-    res.body.to_s.include? '<h1>User Picker</h1>'
+    res.body.to_s.include?('<h1>User Picker</h1>')
   end
 
   #
-  # Retrieve list of users
+  # Retrieve list of users from UserPickerBrowser
   #
   # @param [String] URL
   #
   # @return [Array] list of first 1,000 users
   #
-  def self.getUsers(url)
+  def self.getUsersFromUserPickerBrowser(url)
     url += '/' unless url.to_s.end_with? '/'
     max = 1_000
-    res = self.sendHttpRequest("#{url}secure/popups/UserPickerBrowser.jspa?max=#{max}")
+    res = sendHttpRequest("#{url}secure/popups/UserPickerBrowser.jspa?max=#{max}")
 
     return [] unless res && res.code.to_i == 200 && res.body.to_s.include?('<h1>User Picker</h1>')
 
@@ -141,6 +140,74 @@ class JiraScan
   end
 
   #
+  # Check if unauthenticated access to REST UserPicker is allowed (CVE-2019-3403)
+  #
+  # @param [String] URL
+  #
+  # @return [Boolean]
+  #
+  def self.restUserPicker(url)
+    url += '/' unless url.to_s.end_with? '/'
+    res = sendHttpRequest("#{url}rest/api/latest/user/picker")
+
+    return false unless res
+    return false unless res.code.to_i == 400
+
+    res.body.to_s.include?('The username query parameter was not provided')
+  end
+
+  #
+  # Check if unauthenticated access to REST GroupUserPicker is allowed (CVE-2019-8449)
+  #
+  # @param [String] URL
+  #
+  # @return [Boolean]
+  #
+  def self.restGroupUserPicker(url)
+    url += '/' unless url.to_s.end_with? '/'
+    res = sendHttpRequest("#{url}rest/api/latest/groupuserpicker")
+
+    return false unless res
+    return false unless res.code.to_i == 400
+
+    res.body.to_s.include?('The username query parameter was not provided')
+  end
+
+  #
+  # Check if unauthenticated access to ViewUserHover.jspa is allowed (CVE-2020-14181)
+  #
+  # @param [String] URL
+  #
+  # @return [Boolean]
+  #
+  def self.viewUserHover(url)
+    url += '/' unless url.to_s.end_with? '/'
+    res = sendHttpRequest("#{url}secure/ViewUserHover.jspa")
+
+    return false unless res
+    return false unless res.code.to_i == 200
+
+    res.body.to_s.include?('User does not exist')
+  end
+
+  #
+  # Check if META-INF contents are accessible (CVE-2019-8442)
+  #
+  # @param [String] URL
+  #
+  # @return [Boolean]
+  #
+  def self.metaInf(url)
+    url += '/' unless url.to_s.end_with? '/'
+    res = sendHttpRequest("#{url}s/#{rand(36**6).to_s(36)}/_/META-INF/maven/com.atlassian.jira/atlassian-jira-webapp/pom.xml")
+
+    return false unless res
+    return false unless res.code.to_i == 200
+
+    res.body.to_s.start_with?('<project')
+  end
+
+  #
   # Retrieve list of popular filters
   #
   # @param [String] URL
@@ -149,16 +216,17 @@ class JiraScan
   #
   def self.getPopularFilters(url)
     url += '/' unless url.to_s.end_with? '/'
-    res = self.sendHttpRequest("#{url}secure/ManageFilters.jspa?filter=popular&filterView=popular")
+    res = sendHttpRequest("#{url}secure/ManageFilters.jspa?filter=popular&filterView=popular")
 
-    if res && res.code.to_i == 200 && res.body.to_s.include?('<h1>Manage Filters</h1>')
-      if res.body.to_s =~ /requestId=\d/
-        return res.body.to_s.scan(%r{requestId=\d+">(.+?)</a>})
-      elsif res.body.to_s =~ /filter=\d/
-        return res.body.to_s.scan(%r{filter=\d+">(.+?)</a>})
-      end
-    end
+    return [] unless res
+    return [] unless res.code.to_i == 200
+    return [] unless res.body.to_s.include?('<h1>Manage Filters</h1>')
 
+    return res.body.to_s.scan(%r{requestId=\d+">(.+?)</a>}) if res.body.to_s =~ /requestId=\d/
+    return res.body.to_s.scan(%r{filter=\d+">(.+?)</a>}) if res.body.to_s =~ /filter=\d/
+
+    []
+  rescue
     []
   end
 
@@ -172,11 +240,46 @@ class JiraScan
   def self.getDashboards(url)
     url += '/' unless url.to_s.end_with? '/'
     max = 1_000
-    res = self.sendHttpRequest("#{url}rest/api/2/dashboard?maxResults=#{max}")
+    res = sendHttpRequest("#{url}rest/api/2/dashboard?maxResults=#{max}")
 
-    return [] unless res && res.code.to_i == 200 && res.body.to_s.start_with?('{"startAt"')
+    return [] unless res
+    return [] unless res.code.to_i == 200
+    return [] unless res.body.to_s.start_with?('{"startAt"')
 
     JSON.parse(res.body.to_s, symbolize_names: true)[:dashboards].map {|d| [d[:id], d[:name]] }
+  rescue
+    []
+  end
+
+  #
+  # Retrieve list of field names from QueryComponent!Default.jspa (CVE-2020-14179)
+  #
+  # @param [String] URL
+  #
+  # @return [Array] list of field names
+  #
+  def self.getFieldNames(url)
+    url += '/' unless url.to_s.end_with? '/'
+    res = sendHttpRequest("#{url}secure/QueryComponent!Default.jspa")
+
+    return [] unless res
+    return [] unless res.code.to_i == 200
+    return [] unless res.body.to_s.start_with?('{"searchers"')
+
+    searchers = JSON.parse(res.body.to_s)["searchers"]
+    return [] if searchers.empty?
+
+    groups = searchers['groups']
+    return [] if groups.empty?
+
+    field_names = []
+    groups.each do |g|
+      g['searchers'].each do |s|
+        field_names << s
+      end
+    end
+
+    JSON.parse(field_names.to_json, symbolize_names: true).map {|f| [f[:name], f[:id], f[:key], f[:isShown].to_s, f[:lastViewed]] }
   rescue
     []
   end
@@ -197,7 +300,7 @@ class JiraScan
     if target.scheme.to_s.eql?('https')
       http.use_ssl = true
       http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-      #http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+      # http.verify_mode = OpenSSL::SSL::VERIFY_PEER
     end
     http.open_timeout = 20
     http.read_timeout = 20
