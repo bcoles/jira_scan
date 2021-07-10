@@ -10,16 +10,33 @@ require 'net/http'
 require 'openssl'
 
 class JiraScan
-  VERSION = '0.0.2'.freeze
+  VERSION = '0.0.3'.freeze
 
   #
-  # Check if Jira
+  # Check if URL is running Jira using Login page
   #
   # @param [String] URL
   #
   # @return [Boolean]
   #
-  def self.isJira(url)
+  def self.detectJiraLogin(url)
+    url += '/' unless url.to_s.end_with? '/'
+    res = sendHttpRequest("#{url}login.jsp")
+
+    return false unless res
+    return false unless res.code.to_i == 200
+
+    res.body.to_s.include?('JIRA')
+  end
+
+  #
+  # Check if URL is running Jira using Dashboard page
+  #
+  # @param [String] URL
+  #
+  # @return [Boolean]
+  #
+  def self.detectJiraDashboard(url)
     url += '/' unless url.to_s.end_with? '/'
     res = sendHttpRequest("#{url}secure/Dashboard.jspa")
 
@@ -30,15 +47,44 @@ class JiraScan
   end
 
   #
-  # Get Jira version
+  # Get Jira version from Dashboard page
   #
   # @param [String] URL
   #
   # @return [String] Jira version
   #
-  def self.getVersion(url)
+  def self.getVersionFromDashboard(url)
     url += '/' unless url.to_s.end_with? '/'
     res = sendHttpRequest("#{url}secure/Dashboard.jspa")
+
+    return unless res
+    return unless res.code.to_i == 200
+
+    version = res.body.to_s.scan(%r{<meta name="ajs-version-number" content="([\d\.]+)">}).flatten.first
+    build = res.body.to_s.scan(%r{<meta name="ajs-build-number" content="(\d+)">}).flatten.first
+
+    unless version && build
+      if res.body.to_s =~ /Version: ([\d\.]+)-#(\d+)/
+        version = $1
+        build = $2
+      else
+        return
+      end
+    end
+
+    "#{version}-##{build}"
+  end
+
+  #
+  # Get Jira version from Login page
+  #
+  # @param [String] URL
+  #
+  # @return [String] Jira version
+  #
+  def self.getVersionFromLogin(url)
+    url += '/' unless url.to_s.end_with? '/'
+    res = sendHttpRequest("#{url}login.jsp")
 
     return unless res
     return unless res.code.to_i == 200
@@ -258,9 +304,42 @@ class JiraScan
   #
   # @return [Array] list of field names
   #
-  def self.getFieldNames(url)
+  def self.getFieldNamesQueryComponentDefault(url)
     url += '/' unless url.to_s.end_with? '/'
     res = sendHttpRequest("#{url}secure/QueryComponent!Default.jspa")
+
+    return [] unless res
+    return [] unless res.code.to_i == 200
+    return [] unless res.body.to_s.start_with?('{"searchers"')
+
+    searchers = JSON.parse(res.body.to_s)["searchers"]
+    return [] if searchers.empty?
+
+    groups = searchers['groups']
+    return [] if groups.empty?
+
+    field_names = []
+    groups.each do |g|
+      g['searchers'].each do |s|
+        field_names << s
+      end
+    end
+
+    JSON.parse(field_names.to_json, symbolize_names: true).map {|f| [f[:name], f[:id], f[:key], f[:isShown].to_s, f[:lastViewed]] }
+  rescue
+    []
+  end
+
+  #
+  # Retrieve list of field names from QueryComponent!Jql.jspa (EDB-49924)
+  #
+  # @param [String] URL
+  #
+  # @return [Array] list of field names
+  #
+  def self.getFieldNamesQueryComponentJql(url)
+    url += '/' unless url.to_s.end_with? '/'
+    res = sendHttpRequest("#{url}secure/QueryComponent!Jql.jspa?jql=")
 
     return [] unless res
     return [] unless res.code.to_i == 200
@@ -299,8 +378,7 @@ class JiraScan
     http = Net::HTTP.new(target.host, target.port)
     if target.scheme.to_s.eql?('https')
       http.use_ssl = true
-      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-      # http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+      http.verify_mode = @insecure ? OpenSSL::SSL::VERIFY_NONE : OpenSSL::SSL::VERIFY_PEER
     end
     http.open_timeout = 20
     http.read_timeout = 20

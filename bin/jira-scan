@@ -17,7 +17,7 @@ def banner
   _   | | | '__/ _` |\\___ \\ / __/ _` | '_ \\ 
  | |__| | | | | (_| |____) | (_| (_| | | | |
   \\____/|_|_|  \\__,_|_____/ \\___\\__,_|_| |_|
-                               version 0.0.2"
+                               version 0.0.3"
   puts
   puts '-' * 60
 end
@@ -39,6 +39,10 @@ opts = OptionParser.new do |o|
     options[:skip] = true
   end
 
+  o.on('-i', '--insecure', 'Skip SSL/TLS validation') do
+    options[:insecure] = true
+  end
+
   o.on('-v', '--verbose', 'Enable verbose output') do
     options[:verbose] = true
   end
@@ -53,6 +57,7 @@ opts.parse!
 
 $VERBOSE = true unless options[:verbose].nil?
 @check = true unless options[:skip]
+@insecure = false unless options[:insecure]
 
 if options[:url].nil?
  puts opts
@@ -85,7 +90,9 @@ def scan(url)
 
   # Check if the URL is Jira
   if @check
-    unless JiraScan::isJira(url)
+    is_jira = JiraScan::detectJiraDashboard(url)
+    is_jira = JiraScan::detectJiraLogin(url) unless is_jira
+    unless is_jira
       puts '- Jira not found'
       exit(1)
     end
@@ -93,7 +100,8 @@ def scan(url)
   end
 
   # Get Jira version
-  version = JiraScan::getVersion(url)
+  version = JiraScan::getVersionFromDashboard(url)
+  version = JiraScan::getVersionFromLogin(url) unless version
   puts "+ Version: #{version}" if version
 
   # Dev mode enabled
@@ -109,7 +117,7 @@ def scan(url)
   if user_picker
     puts '+ User Picker Browser is available'
     # Retrieve list of first 1,000 users 
-    users = JiraScan::getUsersFromUserPicker(url)
+    users = JiraScan::getUsersFromUserPickerBrowser(url)
     unless users.empty?
       puts "+ Found users (#{users.length}):"
       table = Terminal::Table.new :headings => ['Username', 'Full Name', 'Email'], :rows => users
@@ -150,7 +158,15 @@ def scan(url)
   end
 
   # Retrieve list of field names
-  field_names = JiraScan::getFieldNames(url)
+  field_names = JiraScan::getFieldNamesQueryComponentDefault(url)
+  unless field_names.empty?
+    puts "+ Found field names (#{field_names.length}):"
+    table = Terminal::Table.new :headings => ['Name', 'ID', 'Key', 'IsShown', 'Last Viewed'], :rows => field_names
+    puts table
+  end
+
+  # Retrieve list of field names
+  field_names = JiraScan::getFieldNamesQueryComponentJql(url)
   unless field_names.empty?
     puts "+ Found field names (#{field_names.length}):"
     table = Terminal::Table.new :headings => ['Name', 'ID', 'Key', 'IsShown', 'Last Viewed'], :rows => field_names
