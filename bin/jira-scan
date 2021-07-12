@@ -17,7 +17,7 @@ def banner
   _   | | | '__/ _` |\\___ \\ / __/ _` | '_ \\ 
  | |__| | | | | (_| |____) | (_| (_| | | | |
   \\____/|_|_|  \\__,_|_____/ \\___\\__,_|_| |_|
-                               version 0.0.3"
+                               version 0.0.4"
   puts
   puts '-' * 60
 end
@@ -55,16 +55,20 @@ end
 
 opts.parse!
 
-$VERBOSE = true unless options[:verbose].nil?
-@check = true unless options[:skip]
-@insecure = false unless options[:insecure]
-
 if options[:url].nil?
  puts opts
  exit(1)
 end
 
-def scan(url)
+def scan(url, check: true, insecure: false, verbose: false)
+  JiraScan.logger = ::Logger.new($stdout).tap do |log|
+    log.progname = 'jira-scan'
+    log.level = verbose ? ::Logger::INFO : ::Logger::WARN
+    log.datetime_format = '%Y-%m-%d %H:%M:%S '
+  end
+
+  JiraScan.insecure = insecure
+
   puts "Scan started at #{Time.now.getutc}"
   puts "URL: #{url}"
 
@@ -89,7 +93,7 @@ def scan(url)
   puts '-' * 60
 
   # Check if the URL is Jira
-  if @check
+  if check
     is_jira = JiraScan::detectJiraDashboard(url)
     is_jira = JiraScan::detectJiraLogin(url) unless is_jira
     unless is_jira
@@ -177,4 +181,9 @@ def scan(url)
   puts '-' * 60
 end
 
-scan(options[:url])
+scan(
+  options[:url],
+  insecure: options[:insecure],
+  check: !options[:skip],
+  verbose: options[:verbose]
+)

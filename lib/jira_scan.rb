@@ -6,11 +6,28 @@
 require 'uri'
 require 'cgi'
 require 'json'
+require 'logger'
 require 'net/http'
 require 'openssl'
 
 class JiraScan
-  VERSION = '0.0.3'.freeze
+  VERSION = '0.0.4'.freeze
+
+  def self.logger
+    @logger
+  end
+
+  def self.logger=(logger)
+    @logger = logger
+  end
+
+  def self.insecure
+    @insecure ||= false
+  end
+
+  def self.insecure=(insecure)
+    @insecure = insecure
+  end
 
   #
   # Check if URL is running Jira using Login page
@@ -64,12 +81,9 @@ class JiraScan
     build = res.body.to_s.scan(%r{<meta name="ajs-build-number" content="(\d+)">}).flatten.first
 
     unless version && build
-      if res.body.to_s =~ /Version: ([\d\.]+)-#(\d+)/
-        version = $1
-        build = $2
-      else
-        return
-      end
+      return unless res.body.to_s =~ /Version: ([\d\.]+)-#(\d+)/
+      version = Regexp.last_match(1)
+      build = Regexp.last_match(2)
     end
 
     "#{version}-##{build}"
@@ -93,12 +107,9 @@ class JiraScan
     build = res.body.to_s.scan(%r{<meta name="ajs-build-number" content="(\d+)">}).flatten.first
 
     unless version && build
-      if res.body.to_s =~ /Version: ([\d\.]+)-#(\d+)/
-        version = $1
-        build = $2
-      else
-        return
-      end
+      return unless res.body.to_s =~ /Version: ([\d\.]+)-#(\d+)/
+      version = Regexp.last_match(1)
+      build = Regexp.last_match(2)
     end
 
     "#{version}-##{build}"
@@ -292,7 +303,7 @@ class JiraScan
     return [] unless res.code.to_i == 200
     return [] unless res.body.to_s.start_with?('{"startAt"')
 
-    JSON.parse(res.body.to_s, symbolize_names: true)[:dashboards].map {|d| [d[:id], d[:name]] }
+    JSON.parse(res.body.to_s, symbolize_names: true)[:dashboards].map { |d| [d[:id], d[:name]] }
   rescue
     []
   end
@@ -312,7 +323,7 @@ class JiraScan
     return [] unless res.code.to_i == 200
     return [] unless res.body.to_s.start_with?('{"searchers"')
 
-    searchers = JSON.parse(res.body.to_s)["searchers"]
+    searchers = JSON.parse(res.body.to_s)['searchers']
     return [] if searchers.empty?
 
     groups = searchers['groups']
@@ -325,7 +336,7 @@ class JiraScan
       end
     end
 
-    JSON.parse(field_names.to_json, symbolize_names: true).map {|f| [f[:name], f[:id], f[:key], f[:isShown].to_s, f[:lastViewed]] }
+    JSON.parse(field_names.to_json, symbolize_names: true).map { |f| [f[:name], f[:id], f[:key], f[:isShown].to_s, f[:lastViewed]] }
   rescue
     []
   end
@@ -345,7 +356,7 @@ class JiraScan
     return [] unless res.code.to_i == 200
     return [] unless res.body.to_s.start_with?('{"searchers"')
 
-    searchers = JSON.parse(res.body.to_s)["searchers"]
+    searchers = JSON.parse(res.body.to_s)['searchers']
     return [] if searchers.empty?
 
     groups = searchers['groups']
@@ -358,12 +369,10 @@ class JiraScan
       end
     end
 
-    JSON.parse(field_names.to_json, symbolize_names: true).map {|f| [f[:name], f[:id], f[:key], f[:isShown].to_s, f[:lastViewed]] }
+    JSON.parse(field_names.to_json, symbolize_names: true).map { |f| [f[:name], f[:id], f[:key], f[:isShown].to_s, f[:lastViewed]] }
   rescue
     []
   end
-
-  private
 
   #
   # Fetch URL
@@ -374,7 +383,8 @@ class JiraScan
   #
   def self.sendHttpRequest(url)
     target = URI.parse(url)
-    puts "* Fetching #{target}" if $VERBOSE
+    @logger.info("Fetching #{target}")
+
     http = Net::HTTP.new(target.host, target.port)
     if target.scheme.to_s.eql?('https')
       http.use_ssl = true
@@ -394,11 +404,13 @@ class JiraScan
         res.body = gz.read
       end
     rescue Timeout::Error, Errno::ETIMEDOUT
-      puts "- Error: Timeout retrieving #{target}" if $VERBOSE
+      @logger.error("Could not retrieve URL #{target}: Timeout")
+      return nil
     rescue => e
-      puts "- Error: Could not retrieve URL #{target}\n#{e}" if $VERBOSE
+      @logger.error("Could not retrieve URL #{target}: #{e}")
+      return nil
     end
-    puts "+ Received reply (#{res.body.length} bytes)" if $VERBOSE
+    @logger.info("Received reply (#{res.body.length} bytes)")
     res
   end
 end

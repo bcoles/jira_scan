@@ -19,7 +19,7 @@ git clone https://github.com/bcoles/jira_scan
 cd jira_scan
 bundle install
 gem build jira_scan.gemspec
-gem install --local jira_scan-0.0.3.gem
+gem install --local jira_scan-0.0.4.gem
 ```
 
 ## Usage (command line)
