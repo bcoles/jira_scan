@@ -11,7 +11,7 @@ require 'net/http'
 require 'openssl'
 
 class JiraScan
-  VERSION = '0.0.4'.freeze
+  VERSION = '0.0.5'.freeze
 
   def self.logger
     @logger
@@ -116,6 +116,26 @@ class JiraScan
   end
 
   #
+  # Retrieve Jira software information
+  #
+  # @param [String] URL
+  #
+  # @return [Array] Jira software information
+  #
+  def self.getServerInfo(url)
+    url += '/' unless url.to_s.end_with? '/'
+    res = sendHttpRequest("#{url}rest/api/latest/serverInfo")
+
+    return [] unless res
+    return [] unless res.code.to_i == 200
+    return [] unless res.body.to_s.start_with?('{"baseUrl"')
+
+    JSON.parse(res.body.to_s, symbolize_names: true)
+  rescue
+    []
+  end
+
+  #
   # Check if dev mode is enabled
   #
   # @param [String] URL
@@ -198,6 +218,7 @@ class JiraScan
 
   #
   # Check if unauthenticated access to REST UserPicker is allowed (CVE-2019-3403)
+  # https://jira.atlassian.com/browse/JRASERVER-69242
   #
   # @param [String] URL
   #
@@ -205,7 +226,7 @@ class JiraScan
   #
   def self.restUserPicker(url)
     url += '/' unless url.to_s.end_with? '/'
-    res = sendHttpRequest("#{url}rest/api/latest/user/picker")
+    res = sendHttpRequest("#{url}rest/api/2/user/picker")
 
     return false unless res
     return false unless res.code.to_i == 400
@@ -215,6 +236,7 @@ class JiraScan
 
   #
   # Check if unauthenticated access to REST GroupUserPicker is allowed (CVE-2019-8449)
+  # https://jira.atlassian.com/browse/JRASERVER-69796
   #
   # @param [String] URL
   #
@@ -222,7 +244,7 @@ class JiraScan
   #
   def self.restGroupUserPicker(url)
     url += '/' unless url.to_s.end_with? '/'
-    res = sendHttpRequest("#{url}rest/api/latest/groupuserpicker")
+    res = sendHttpRequest("#{url}rest/api/2/groupuserpicker")
 
     return false unless res
     return false unless res.code.to_i == 400
@@ -231,7 +253,32 @@ class JiraScan
   end
 
   #
+  # Retrieve list of installed gadgets
+  # https://jira.atlassian.com/browse/JRASERVER-72613
+  #
+  # @param [String] URL
+  #
+  # @return [Array] list of installed gadgets
+  #
+  def self.getGadgets(url)
+    url += '/' unless url.to_s.end_with? '/'
+    res = sendHttpRequest("#{url}rest/config/1.0/directory.json")
+
+    return [] unless res
+    return [] unless res.code.to_i == 200
+    return [] unless res.body.to_s.start_with?('{"categories"')
+
+    gadgets = JSON.parse(res.body.to_s)['gadgets']
+    return [] if gadgets.empty?
+
+    JSON.parse(gadgets.to_json, symbolize_names: true).map { |g| [g[:title], g[:authorName], g[:authorEmail], g[:description]] }
+  rescue
+    []
+  end
+
+  #
   # Check if unauthenticated access to ViewUserHover.jspa is allowed (CVE-2020-14181)
+  # https://jira.atlassian.com/browse/JRASERVER-71560
   #
   # @param [String] URL
   #
@@ -249,6 +296,7 @@ class JiraScan
 
   #
   # Check if META-INF contents are accessible (CVE-2019-8442)
+  # https://jira.atlassian.com/browse/JRASERVER-69241
   #
   # @param [String] URL
   #
@@ -266,6 +314,7 @@ class JiraScan
 
   #
   # Retrieve list of popular filters
+  # https://jira.atlassian.com/browse/JRASERVER-23255
   #
   # @param [String] URL
   #
@@ -302,6 +351,8 @@ class JiraScan
     return [] unless res
     return [] unless res.code.to_i == 200
     return [] unless res.body.to_s.start_with?('{"startAt"')
+    return [] unless res.body.to_s.include?('id')
+    return [] unless res.body.to_s.include?('name')
 
     JSON.parse(res.body.to_s, symbolize_names: true)[:dashboards].map { |d| [d[:id], d[:name]] }
   rescue
@@ -309,7 +360,104 @@ class JiraScan
   end
 
   #
+  # Retrieve list of resolutions
+  #
+  # @param [String] URL
+  #
+  # @return [Array] list of resolutions
+  #
+  def self.getResolutions(url)
+    url += '/' unless url.to_s.end_with? '/'
+    res = sendHttpRequest("#{url}rest/api/2/resolution")
+
+    return [] unless res
+    return [] unless res.code.to_i == 200
+    return [] unless res.body.to_s.start_with?('[{"self"')
+    return [] unless res.body.to_s.include?('id')
+    return [] unless res.body.to_s.include?('name')
+    return [] unless res.body.to_s.include?('description')
+
+    JSON.parse(res.body.to_s, symbolize_names: true).map { |r| [r[:id], r[:name], r[:description]] }
+  rescue
+    []
+  end
+
+  #
+  # Retrieve list of projects
+  #
+  # @param [String] URL
+  #
+  # @return [Array] list of projects
+  #
+  def self.getProjects(url)
+    url += '/' unless url.to_s.end_with? '/'
+    max = 1_000
+    res = sendHttpRequest("#{url}rest/api/2/project?maxResults=#{max}")
+
+    return [] unless res
+    return [] unless res.code.to_i == 200
+    return [] unless res.body.to_s.start_with?('[{"expand"')
+    return [] unless res.body.to_s.include?('id')
+    return [] unless res.body.to_s.include?('key')
+    return [] unless res.body.to_s.include?('name')
+
+    JSON.parse(res.body.to_s, symbolize_names: true).map { |r| [r[:id], r[:key], r[:name]] }
+  rescue
+    []
+  end
+
+  #
+  # Retrieve list of project categories
+  #
+  # @param [String] URL
+  #
+  # @return [Array] list of project categories
+  #
+  def self.getProjectCategories(url)
+    url += '/' unless url.to_s.end_with? '/'
+    res = sendHttpRequest("#{url}rest/api/2/projectCategory")
+
+    return [] unless res
+    return [] unless res.code.to_i == 200
+    return [] unless res.body.to_s.start_with?('[{"self"')
+    return [] unless res.body.to_s.include?('id')
+    return [] unless res.body.to_s.include?('name')
+    return [] unless res.body.to_s.include?('description')
+
+    JSON.parse(res.body.to_s, symbolize_names: true).map { |r| [r[:id], r[:name], r[:description]] }
+  rescue
+    []
+  end
+
+  #
+  # Retrieve list of linked applications
+  # https://jira.atlassian.com/browse/JRASERVER-64963
+  # https://jira.atlassian.com/browse/JRACLOUD-64963
+  #
+  # @param [String] URL
+  #
+  # @return [Array] list of linked applications
+  #
+  def self.getLinkedApps(url)
+    url += '/' unless url.to_s.end_with? '/'
+    res = sendHttpRequest("#{url}rest/menu/latest/admin")
+
+    return [] unless res
+    return [] unless res.code.to_i == 200
+    return [] unless res.body.to_s.start_with?('[{"key"')
+    return [] unless res.body.to_s.include?('link')
+    return [] unless res.body.to_s.include?('label')
+    return [] unless res.body.to_s.include?('applicationType')
+
+    JSON.parse(res.body.to_s, symbolize_names: true).map { |r| [r[:link], r[:label], r[:applicationType]] }
+  rescue
+    []
+  end
+
+  #
   # Retrieve list of field names from QueryComponent!Default.jspa (CVE-2020-14179)
+  # https://jira.atlassian.com/browse/JRASERVER-71536
+  # https://jira.atlassian.com/browse/JRACLOUD-75661
   #
   # @param [String] URL
   #
@@ -342,7 +490,8 @@ class JiraScan
   end
 
   #
-  # Retrieve list of field names from QueryComponent!Jql.jspa (EDB-49924)
+  # Retrieve list of field names from QueryComponent!Jql.jspa (CVE-2020-14179)
+  # https://jira.atlassian.com/browse/JRASERVER-71536
   #
   # @param [String] URL
   #

@@ -6,9 +6,9 @@
 
 Gem::Specification.new do |s|
   s.name        = 'jira_scan'
-  s.version     = '0.0.4'
+  s.version     = '0.0.5'
   s.required_ruby_version = '>= 2.0.0'
-  s.date        = '2021-07-12'
+  s.date        = '2021-08-10'
   s.summary     = 'Jira scanner'
   s.description = 'A simple remote scanner for Atlassian Jira'
   s.license     = 'MIT'
@@ -18,6 +18,6 @@ Gem::Specification.new do |s|
   s.homepage    = 'https://github.com/bcoles/jira_scan'
   s.executables << 'jira-scan'
 
-  s.add_dependency 'terminal-table'
-  s.add_dependency 'logger'
+  s.add_dependency 'terminal-table', '~> 3.0'
+  s.add_dependency 'logger', '~> 1.4'
 end

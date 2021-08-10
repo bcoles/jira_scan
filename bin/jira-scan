@@ -17,7 +17,7 @@ def banner
   _   | | | '__/ _` |\\___ \\ / __/ _` | '_ \\ 
  | |__| | | | | (_| |____) | (_| (_| | | | |
   \\____/|_|_|  \\__,_|_____/ \\___\\__,_|_| |_|
-                               version 0.0.4"
+                               version 0.0.5"
   puts
   puts '-' * 60
 end
@@ -108,6 +108,14 @@ def scan(url, check: true, insecure: false, verbose: false)
   version = JiraScan::getVersionFromLogin(url) unless version
   puts "+ Version: #{version}" if version
 
+  # Retrieve Jira software information
+  info = JiraScan::getServerInfo(url)
+  unless info.empty?
+    puts "+ Server info:"
+    table = Terminal::Table.new :rows => info
+    puts table
+  end
+
   # Dev mode enabled
   dev_mode = JiraScan::devMode(url)
   puts '+ Dev mode is enabled' if dev_mode
@@ -158,6 +166,46 @@ def scan(url, check: true, insecure: false, verbose: false)
   unless filters.empty?
     puts "+ Found popular filters (#{filters.length}):"
     table = Terminal::Table.new :headings => ['Filter Name'], :rows => filters
+    puts table
+  end
+
+  # Retrieve list of installed gadgets
+  gadgets = JiraScan::getGadgets(url)
+  unless gadgets.empty?
+    puts "+ Found gadgets (#{gadgets.length}):"
+    table = Terminal::Table.new :headings => ['Title', 'Author Name', 'Author Email', 'Description'], :rows => gadgets
+    puts table
+  end
+
+  # Retrieve list of resolutions
+  resolutions = JiraScan::getResolutions(url)
+  unless resolutions.empty?
+    puts "+ Found resolutions (#{resolutions.length}):"
+    table = Terminal::Table.new :headings => ['ID', 'Name', 'Description'], :rows => resolutions
+    puts table
+  end
+
+  # Retrieve list of projects
+  projects = JiraScan::getProjects(url)
+  unless projects.empty?
+    puts "+ Found projects (#{projects.length}):"
+    table = Terminal::Table.new :headings => ['ID', 'Key', 'Name'], :rows => projects
+    puts table
+  end
+
+  # Retrieve list of project categories
+  project_categories = JiraScan::getProjectCategories(url)
+  unless project_categories.empty?
+    puts "+ Found project categories (#{project_categories.length}):"
+    table = Terminal::Table.new :headings => ['ID', 'Name', 'Description'], :rows => project_categories
+    puts table
+  end
+
+  # Retrieve list of linked applications
+  apps = JiraScan::getLinkedApps(url)
+  unless apps.empty?
+    puts "+ Found linked applications (#{apps.length}):"
+    table = Terminal::Table.new :headings => ['Link', 'Label', 'Application Type'], :rows => apps
     puts table
   end
 
