@@ -19,7 +19,7 @@ git clone https://github.com/bcoles/jira_scan
 cd jira_scan
 bundle install
 gem build jira_scan.gemspec
-gem install --local jira_scan-0.0.5.gem
+gem install --local jira_scan-0.0.6.gem
 ```
 
 ## Usage (command line)
@@ -44,6 +44,7 @@ JiraScan::detectJiraDashboard(url)                 # Check if a URL is Jira usin
 JiraScan::detectJiraLogin(url)                     # Check if a URL is Jira using Login page
 JiraScan::devMode(url)                             # Check if dev mode is enabled
 JiraScan::userRegistration(url)                    # Check if user registration is enabled
+JiraScan::userServiceDeskRegistration(url)         # Check if Service Desk user registration is enabled
 JiraScan::userPickerBrowser(url)                   # Check if User Picker Browser is accessible
 JiraScan::restUserPicker(url)                      # Check if REST User Picker is accessible
 JiraScan::restGroupUserPicker(url)                 # Check if REST Group User Picker is accessible

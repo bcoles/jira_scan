@@ -17,7 +17,7 @@ def banner
   _   | | | '__/ _` |\\___ \\ / __/ _` | '_ \\ 
  | |__| | | | | (_| |____) | (_| (_| | | | |
   \\____/|_|_|  \\__,_|_____/ \\___\\__,_|_| |_|
-                               version 0.0.5"
+                               version #{JiraScan::VERSION}"
   puts
   puts '-' * 60
 end
@@ -117,16 +117,16 @@ def scan(url, check: true, insecure: false, verbose: false)
   end
 
   # Dev mode enabled
-  dev_mode = JiraScan::devMode(url)
-  puts '+ Dev mode is enabled' if dev_mode
+  puts '+ Dev mode is enabled' if JiraScan::devMode(url)
 
   # User registration enabled
-  register = JiraScan::userRegistration(url)
-  puts '+ User registration is enabled' if register
+  puts '+ User registration is enabled' if JiraScan::userRegistration(url)
+
+  # Service Desk user registration enabled
+  puts '+ Service Desk user registration is enabled' if JiraScan::userServiceDeskRegistration(url)
 
   # Check if User Picker Browser is accessible
-  user_picker = JiraScan::userPickerBrowser(url)
-  if user_picker
+  if JiraScan::userPickerBrowser(url)
     puts '+ User Picker Browser is available'
     # Retrieve list of first 1,000 users 
     users = JiraScan::getUsersFromUserPickerBrowser(url)
@@ -138,20 +138,16 @@ def scan(url, check: true, insecure: false, verbose: false)
   end
 
   # Check if REST User Picker is accessible
-  rest_user_picker = JiraScan::restUserPicker(url)
-  puts "+ REST UserPicker is available" if rest_user_picker
+  puts "+ REST UserPicker is available" if JiraScan::restUserPicker(url)
 
   # Check if REST Group User Picker is accessible
-  rest_group_user_picker = JiraScan::restGroupUserPicker(url)
-  puts "+ REST GroupUserPicker is available" if rest_group_user_picker
+  puts "+ REST GroupUserPicker is available" if JiraScan::restGroupUserPicker(url)
 
   # Check if ViewUserHover.jspa is accessible
-  view_user_hover = JiraScan::viewUserHover(url)
-  puts "+ ViewUserHover.jspa is available" if view_user_hover
+  puts "+ ViewUserHover.jspa is available" if JiraScan::viewUserHover(url)
 
   # Check if META-INF contents are accessible
-  meta_inf = JiraScan::metaInf(url)
-  puts '+ META-INF directory contents are accessible' if meta_inf
+  puts '+ META-INF directory contents are accessible' if JiraScan::metaInf(url)
 
   # Retrieve list of dashboards
   dashboards = JiraScan::getDashboards(url)

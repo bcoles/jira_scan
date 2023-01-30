@@ -6,9 +6,9 @@
 
 Gem::Specification.new do |s|
   s.name        = 'jira_scan'
-  s.version     = '0.0.5'
+  s.version     = '0.0.6'
   s.required_ruby_version = '>= 2.0.0'
-  s.date        = '2021-08-10'
+  s.date        = '2023-01-30'
   s.summary     = 'Jira scanner'
   s.description = 'A simple remote scanner for Atlassian Jira'
   s.license     = 'MIT'

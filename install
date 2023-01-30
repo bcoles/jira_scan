@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 bundle install
 gem build jira_scan.gemspec
-gem install --local jira_scan-0.0.5.gem
+gem install --local jira_scan-0.0.6.gem

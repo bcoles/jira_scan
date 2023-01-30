@@ -9,9 +9,10 @@ require 'json'
 require 'logger'
 require 'net/http'
 require 'openssl'
+require 'stringio'
 
 class JiraScan
-  VERSION = '0.0.5'.freeze
+  VERSION = '0.0.6'.freeze
 
   def self.logger
     @logger
@@ -154,6 +155,7 @@ class JiraScan
 
   #
   # Check if account registration is enabled
+  # https://docs.atlassian.com/jira/jsd-docs-045/Configuring+public+signup
   #
   # @param [String] URL
   #
@@ -167,6 +169,25 @@ class JiraScan
     return false unless res.code.to_i == 200
 
     res.body.to_s.include?('<h1>Sign up</h1>')
+  end
+
+  #
+  # Check if Jira Service Desk (part of Jira Service Management) account registration is enabled
+  # https://docs.atlassian.com/jira/jsd-docs-045/Configuring+public+signup
+  # https://support.atlassian.com/jira-service-management-cloud/docs/customer-permissions-for-your-service-project-and-jira-site/
+  #
+  # @param [String] URL
+  #
+  # @return [Boolean]
+  #
+  def self.userServiceDeskRegistration(url)
+    url += '/' unless url.to_s.end_with? '/'
+    res = sendHttpRequest("#{url}servicedesk/customer/user/signup")
+
+    return false unless res
+    return false unless res.code.to_i == 200
+
+    res.body.to_s.include?('serviceDeskVersion') || res.body.to_s.include?('com.atlassian.servicedesk')
   end
 
   #
